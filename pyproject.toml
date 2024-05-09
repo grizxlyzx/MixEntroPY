@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixentropy"
+version = "0.0.1"
+dependencies = [
+    "numpy>=1.20.0"
+]
+requires-python = ">=3.8"
+authors = [
+    {name = "Grizxly", email = "grizxlyzx@gamil.com"}
+]
+maintainers = [
+    {name = "Grizxly", email = "grizxlyzx@gamil.com"}
+]
+
+description = "Tools for estimating entropy of mixture distribution and more."
+readme = "src/README.md"
+license = {file = "LICENSE"}
+keywords = ["machine learning", "deep learning", "entropy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+pth = [
+    "torch>=2.0.0"
+]
+
+[project.urls]
+Repository = "https://github.com/grizxlyzx/MixEntroPY"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
