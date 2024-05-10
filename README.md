@@ -22,13 +22,123 @@ Most of the estimators are **differentiable**, making them suitable for optimiza
 
 ### Installation
 
-Make sure Python >= 3.8 is installed.
+Switch to your desired virtual/conda env with python >= 3.8:
+- To install with numpy dependency only:
+```pip install mixentropy```
+<br>
+- To install with both numpy and pytorch dependency:
+```pip install mixentropy[pth]```
+<br>
+- (Optional) In order to run experiments, you may also need:
+```pip install matplotlib scipy```
 
-`TODO`
 
-## Example Usage
+## Usage
+#### Estimators for mixture distribution takes:
+- `c`: Weights of each components, which should sum up to one;
+- `mu`: Positions of each component.
+    - For Gaussian, mu indicates mean of each component;
+    - For uniform, mu indicates center position of each component.
+- `sigma`: "Spread" of each component.
+    - For Gaussian, sigma is a stack of variance (or covariance matrix for multivariate Gaussian) of each component,
+    - For uniform, sigma is a stack of diagonal matrices, with each diagonal entry indicates interval length of a component on that dimension.
+- `elem`: component type, could be `"gauss"` or `"uniform"`, for Gaussian and uniform respectively.
 
-`TODO`
+Some estimator may take extra arguments:
+- Monte Carlo estimator needs `n_samples` to indicate how many datapoints will be sampled to estimate entropy.
+- Pairwise distance estimator needs `dist` to indicate which distance function to use (could be `"kl"` or `"chernoff"`).
+
+##### Example
+
+```Python
+import numpy as np
+import torch
+from mixentropy.np.monte_carlo_estimator import estimate as h_mc_np
+from mixentropy.np.kde_estimator import estimate as h_kde_np
+from mixentropy.np.elk_estimator import estimate as h_elk_np
+from mixentropy.np.pairwise_dist_estimator import estimate as h_pairwise_np
+from mixentropy.pth.monte_carlo_estimator import estimate as h_mc_pt
+from mixentropy.pth.kde_estimator import estimate as h_kde_pt
+from mixentropy.pth.elk_estimator import estimate as h_elk_pt
+from mixentropy.pth.pairwise_dist_estimator import estimate as h_pairwise_pt
+
+
+# generate some random fake data
+k = 100  # number of components
+d = 10  # number of dimensions of each component
+b = 4  # batch size
+c = np.ones(k) / k  # [k,], weights for k components
+mu = np.random.normal(0., 1, size=(k, d))  # [k, d], n components, each has d dimensions
+sigma = np.stack([np.eye(d)] * k)  # [k, d, d], k components, each has a d*d covariance matrix
+
+# estimate entropy of mixture of gaussian (numpy version)
+ent_mc_np = h_mc_np(c, mu, sigma, n_samples=3000, elem='gauss')
+ent_kde_g_np = h_kde_np(c, mu, sigma, elem='gauss')
+ent_elk_g_np = h_elk_np(c, mu, sigma, elem='gauss')
+ent_pd_kl_g_np = h_pairwise_np(c, mu, sigma, elem='gauss', dist='kl')
+ent_pd_cf_g_np = h_pairwise_np(c, mu, sigma, elem='gauss', dist='chernoff')
+
+# torch version to estimate on mixture of uniform
+# notice that a batch axis is expanded to the left for all input
+c_t = torch.tensor(np.stack([c] * b))  # [n,] -> [b, n]
+mu_t = torch.tensor(np.stack([mu] * b))  # [k, d] -> [b, k, d]
+sigma_t = torch.tensor(np.stack([sigma] * b))  # [k, d, d] -> [b, k, d, d]
+
+ent_mc_u_pt = h_mc_pt(c_t, mu_t, sigma_t, n_samples=30000, elem='uniform')
+ent_kde_u_pt = h_kde_pt(c_t, mu_t, sigma_t, elem='uniform')
+ent_elk_u_pt = h_elk_pt(c_t, mu_t, sigma_t, elem='uniform')
+ent_pd_kl_u_pt = h_pairwise_pt(c_t, mu_t, sigma_t, elem='uniform', dist='kl')
+ent_pd_cf_u_pt = h_pairwise_pt(c_t, mu_t, sigma_t, elem='uniform', dist='chernoff')
+```
+
+#### LogDet estimators:
+
+LogDet estimators take datapoints as input directly.
+
+##### Example
+
+```Python
+import numpy as np
+import torch
+from mixentropy.np.logdet_estimator import logdet_entropy as ld_np, logdet_joint_entropy as ldj_np
+from mixentropy.pth.logdet_estimator import logdet_entropy as ld_pt, logdet_joint_entropy as ldj_pt
+
+# make some random fake data
+d = 10  # number of dimensions
+k = 3000  # number of datapoints
+b = 4  # batch size
+beta = 1.  # hyperparameter
+
+mu1 = np.random.normal(0, 1, size=d)  # [d,]
+mu2 = np.random.normal(0, 1, size=d)  # [d,]
+sigma1 = (sigma1 := np.random.normal(0, 1, size=(d, d))) @ sigma1.T  # [d, d]
+sigma2 = (sigma2 := np.random.normal(0, 1, size=(d, d))) @ sigma2.T  # [d, d]
+x1 = np.random.multivariate_normal(mean=mu1, cov=sigma1, size=k)  # [k, d]
+x2 = np.random.multivariate_normal(mean=mu2, cov=sigma2, size=k)  # [k, d]
+x1x2 = np.stack([x1, x2])  # [2, k, d]
+
+# estimate entropy with LogDet estimator (Numpy version)
+ent_logdet1_np = ld_np(x1, beta)
+ent_logdet2_np = ld_np(x2, beta)
+joint_ent_logdet_np = ldj_np(x1x2, beta)  # joint entropy of x1 and x2
+
+# Pytorch version
+x1_t = torch.tensor(np.stack([x1] * b))  # [b, k, d]
+x2_t = torch.tensor(np.stack([x2] * b))  # [b, k, d]
+x1x2_t = torch.tensor(np.stack([x1x2] * b))  # [b, 2, k, d]
+
+ent_logdet1_pt = ld_pt(x1_t, beta)
+ent_logdet2_pt = ld_pt(x2_t, beta)
+joint_ent_logdet_pt = ldj_pt(x1x2_t, beta)
+
+```
+> **NOTE**: All estimators in Pytorch implementation take inputs with an extra batch dimension on the left.
+
+> **NOTE**: For simplicity and performance, estimators DO NOT validate theri input, e.g., check if `sigma` is positive semi-definite or if `c` sum up to one.
+
+
+
+
 
 ## Brief Introduction of Estimators
 
@@ -281,7 +391,6 @@ It is easy to see that the size of covariance matrix $\Sigma_Z$ grows exponentia
 Numerical experiments are performed as described in [[3]](#3), and following are the results.
 
 > **NOTE**:
->
 > It is noted in [[3]](#3) that the x axis of these experiments represents _Natural logarithm_ of the hyperparameter $\ln(\cdot)$, while in the experiments conducted here, the result plot aligns with those presented in the paper using $\log_{10}(\cdot)$.
 >
 > Also, please refer to [[8]](#8) for the official implementation in Golang.
