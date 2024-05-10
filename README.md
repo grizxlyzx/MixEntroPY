@@ -23,14 +23,16 @@ Most of the estimators are **differentiable**, making them suitable for optimiza
 ### Installation
 
 Switch to your desired virtual/conda env with python >= 3.8:
-- To install with numpy dependency only:
-```pip install mixentropy```
-<br>
-- To install with both numpy and pytorch dependency:
-```pip install mixentropy[pth]```
-<br>
-- (Optional) In order to run experiments, you may also need:
-```pip install matplotlib scipy```
+- To install with numpy dependency only: \
+    ```pip install mixentropy```
+<br/>
+
+- To install with both numpy and pytorch dependency: \
+    ```pip install mixentropy[pth]```
+<br/>
+
+- (Optional) In order to run experiments, you may also need: \
+    ```pip install matplotlib scipy```
 
 
 ## Usage
